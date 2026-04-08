@@ -1,6 +1,9 @@
-numpy>=1.20.0
-pandas>=1.3.0
-matplotlib>=3.5.0
-scipy>=1.7.0
-seaborn>=0.11.0
-openpyxl>=3.0.9  # For Excel file support
+# Core dependencies
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+matplotlib>=3.7.0,<4.0.0
+openpyxl>=3.1.0,<4.0.0
+
+# Development dependencies
+pytest>=7.0.0
+ruff>=0.1.0

@@ -55,11 +55,19 @@ def calculate_cell_average_speed(traj: pd.DataFrame) -> float:
     Returns:
         Average speed of the cell
     """
-    # Skip first row as it has NaN for speed
+    # Need at least 2 points to calculate speed
     if len(traj) <= 1:
         return np.nan
     
-    return traj['inst_speed'].iloc[1:].mean()
+    # Skip first row as it has NaN for speed (due to diff operation)
+    # Only include finite (non-NaN, non-inf) speed values
+    speed_values = traj['inst_speed'].iloc[1:]
+    speed_values = speed_values[np.isfinite(speed_values)]
+    
+    if len(speed_values) == 0:
+        return np.nan
+    
+    return speed_values.mean()
 
 
 def plot_speed_by_cell(avg_speeds: Dict[str, List[float]], 
@@ -83,8 +91,14 @@ def plot_speed_by_cell(avg_speeds: Dict[str, List[float]],
     
     for condition, speed_list in avg_speeds.items():
         for speed in speed_list:
-            conditions.append(condition)
-            speeds.append(speed)
+            if np.isfinite(speed):  # Only include finite speeds
+                conditions.append(condition)
+                speeds.append(speed)
+    
+    if not speeds:
+        ax.text(0.5, 0.5, 'No valid speed data to plot', 
+                ha='center', va='center', transform=ax.transAxes)
+        return fig
     
     plot_df = pd.DataFrame({
         'Condition': conditions,
@@ -103,8 +117,9 @@ def plot_speed_by_cell(avg_speeds: Dict[str, List[float]],
     
     # Add mean values as text
     for i, (condition, row) in enumerate(summary.iterrows()):
-        ax.text(i, row['mean'], f"{row['mean']:.2f}±{row['sem']:.2f}", 
-                ha='center', va='bottom', fontweight='bold')
+        if np.isfinite(row['mean']) and np.isfinite(row['sem']):
+            ax.text(i, row['mean'], f"{row['mean']:.2f}±{row['sem']:.2f}", 
+                    ha='center', va='bottom', fontweight='bold')
     
     # Customize plot
     ax.set_title("Average Speed by Cell", fontsize=14)
@@ -143,31 +158,50 @@ def run_speed_analysis(data: Dict[str, pd.DataFrame],
         trajectories = split_trajectories(df)
         print(f"  Found {len(trajectories)} trajectories")
         
+        if not trajectories:
+            print(f"  No valid trajectories found for condition {condition_name}")
+            continue
+        
         # Calculate speeds for each trajectory
         speed_trajectories = [calculate_instantaneous_speeds(traj, time_interval) 
                              for traj in trajectories]
         
         # Calculate average speed for each cell
         cell_avg_speeds = [calculate_cell_average_speed(traj) for traj in speed_trajectories]
-        cell_avg_speeds = [s for s in cell_avg_speeds if not np.isnan(s)]
+        
+        # Filter out NaN values
+        cell_avg_speeds = [s for s in cell_avg_speeds if np.isfinite(s)]
+        
+        print(f"  Calculated speeds for {len(cell_avg_speeds)} cells")
         
         # Store for plotting
         all_avg_speeds[condition_name] = cell_avg_speeds
         
         # Create results DataFrame
-        results = pd.DataFrame({
-            'Cell Number': range(1, len(cell_avg_speeds) + 1),
-            'Average Speed': cell_avg_speeds
-        })
-        
-        # Add summary statistics
-        grand_avg = np.mean(cell_avg_speeds) if cell_avg_speeds else np.nan
-        sem = np.std(cell_avg_speeds) / np.sqrt(len(cell_avg_speeds)) if len(cell_avg_speeds) > 1 else np.nan
-        
-        summary = pd.DataFrame({
-            'Statistic': ['Grand Average', 'SEM', 'Cell Count'],
-            'Value': [grand_avg, sem, len(cell_avg_speeds)]
-        })
+        if cell_avg_speeds:
+            results = pd.DataFrame({
+                'Cell Number': range(1, len(cell_avg_speeds) + 1),
+                'Average Speed': cell_avg_speeds
+            })
+            
+            # Add summary statistics
+            grand_avg = np.mean(cell_avg_speeds)
+            sem = np.std(cell_avg_speeds) / np.sqrt(len(cell_avg_speeds)) if len(cell_avg_speeds) > 1 else np.nan
+            
+            summary = pd.DataFrame({
+                'Statistic': ['Grand Average', 'SEM', 'Cell Count'],
+                'Value': [grand_avg, sem, len(cell_avg_speeds)]
+            })
+            
+            print(f"  Grand average speed: {grand_avg:.3f}")
+            print(f"  SEM: {sem:.3f}")
+        else:
+            results = pd.DataFrame(columns=['Cell Number', 'Average Speed'])
+            summary = pd.DataFrame({
+                'Statistic': ['Grand Average', 'SEM', 'Cell Count'],
+                'Value': [np.nan, np.nan, 0]
+            })
+            print("  No valid speed calculations")
         
         # Store results
         all_results[condition_name] = {
@@ -186,11 +220,12 @@ def run_speed_analysis(data: Dict[str, pd.DataFrame],
         summary['Condition'] = condition
         combined_summary.append(summary)
     
-    combined_summary_df = pd.concat(combined_summary, ignore_index=True)
-    save_results(combined_summary_df, output_dir, "speed_summary_all")
+    if combined_summary:
+        combined_summary_df = pd.concat(combined_summary, ignore_index=True)
+        save_results(combined_summary_df, output_dir, "speed_summary_all")
     
     # Plot speed by cell
-    if all_avg_speeds:
+    if all_avg_speeds and any(speeds for speeds in all_avg_speeds.values()):
         fig = plot_speed_by_cell(all_avg_speeds, output_dir)
         save_figure(fig, output_dir, "speed_by_cell")
         plt.close(fig)
