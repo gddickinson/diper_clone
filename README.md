@@ -61,3 +61,7 @@ diper_clone/
 ## Reference
 
 Based on the DiPer Excel-based toolbox for cell migration analysis.
+
+
+---
+*Built with AI assistance from [Claude (Anthropic)](https://claude.com/).*
