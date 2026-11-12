@@ -43,6 +43,37 @@ autocorr = run_autocorrelation_analysis(data, time_interval=1.0, max_intervals=3
 
 See `docs/usage_example.py` and `docs/diper_user_manual.md` for every analysis.
 
+## Web interface
+
+![Home](docs/img/home.png)
+
+Live (static) site: https://gddickinson.github.io/diper_clone/ . Analyse your own track CSVs (one file per
+condition, DiPer layout: frame, x, y in columns 4-6) in the browser, or try the simulated demo tracks (seeded
+persistent random walks, clearly labelled; the repo has no measured data). You give the frame interval, the time
+unit, and whether x/y are pixels (pixel size in µm/px required) or µm; every program then runs at once: tracks and
+Plot_At_Origin, Speed, Dir_Ratio (over time and last point), MSD with α, Autocorrel (and Autocorrel_3D when a 7th
+z column is present), Vel_Cor and optional Sparse_Data, with error bars, a summary table and CSV exports that record
+the settings and units.
+
+| Tracks from the origin | Direction and velocity autocorrelation | Dir_Ratio and MSD |
+|---|---|---|
+| ![Tracks](docs/img/demo_tracks.png) | ![Autocorrelation](docs/img/demo_autocorrelation.png) | ![MSD](docs/img/demo_dir_ratio_msd.png) |
+
+```bash
+pip install -r requirements-web.txt
+python run_web.py                     # local app: http://127.0.0.1:8156 (Python engine, Excel accepted)
+python scripts/build_static.py        # static site in site/ (published by .github/workflows/pages.yml)
+python -m pytest -q tests             # package + web tests (node runs the JS engine test if installed)
+```
+
+- **Local app**: uploads go to the local FastAPI server, which calls the package's own functions
+  (`diper/web/analysis.py`); for CSV input the page also re-runs the JS port and reports the largest difference.
+- **Static site**: `diper/web/static/diper_engine.js` is a JavaScript port of the same steps, checked against the
+  Python results on `tests/fixtures/diper_fixture.json` by `diper_engine.test.mjs` (worst relative difference
+  about 1e-15; regenerate the fixture with `python scripts/make_diper_fixture.py`). Nothing is uploaded.
+- Not in the web pages: Autocorrel_NoGaps (numpy random vectors) and Make_Charts image files (the Analyse page can
+  show any single track instead).
+
 ## Project Structure
 
 ```
@@ -66,7 +97,9 @@ diper_clone/
 
 ## Reference
 
-Based on the DiPer Excel-based toolbox for cell migration analysis.
+Based on the DiPer Excel-based toolbox for cell migration analysis: Gorelik, R. & Gautreau, A. (2014). Quantitative
+and unbiased analysis of directional persistence in cell migration. Nature Protocols 9(8), 1931-1943.
+https://doi.org/10.1038/nprot.2014.131
 
 
 ---

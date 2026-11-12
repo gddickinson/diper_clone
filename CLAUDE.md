@@ -13,10 +13,12 @@ George's global Claude preferences live in `~/.claude/CLAUDE.md` and apply to ev
 
 ## Project navigation
 
-See [`INTERFACE.md`](./INTERFACE.md) for a navigation map of this repository's modules and how they connect. Read `INTERFACE.md` before opening individual source files.
+@INTERFACE.md — see [`INTERFACE.md`](./INTERFACE.md) for a navigation map of this repository's modules and how they connect. Read `INTERFACE.md` before opening individual source files.
 
 ## Working with Claude on this repo
 
 When directing Claude Code on this codebase, follow the global rules above, prefer making targeted edits via the `Edit` tool over rewriting whole files, and update `INTERFACE.md` whenever the project structure changes.
 
 Project-specific conventions, build instructions, and lab-specific notes should be added below as the project evolves.
+
+Web interface: `python run_web.py` (port 8156); JS engine must keep matching Python (`python scripts/make_diper_fixture.py` after changing analysis code, then `pytest tests`). Progress notes: SESSION_LOG.md.
