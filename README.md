@@ -99,7 +99,8 @@ diper_clone/
 
 Based on the DiPer Excel-based toolbox for cell migration analysis: Gorelik, R. & Gautreau, A. (2014). Quantitative
 and unbiased analysis of directional persistence in cell migration. Nature Protocols 9(8), 1931-1943.
-https://doi.org/10.1038/nprot.2014.131
+https://doi.org/10.1038/nprot.2014.131 (the paper is not included in this repository; the DOI links to the
+publisher's page).
 
 
 ---

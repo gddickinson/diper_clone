@@ -518,7 +518,10 @@ If you use DiPer in your research, please cite the original paper:
 ```
 Gorelik, R., & Gautreau, A. (2014). Quantitative and unbiased analysis of 
 directional persistence in cell migration. Nature Protocols, 9(8), 1931-1943.
+https://doi.org/10.1038/nprot.2014.131
 ```
+
+The paper (copyrighted by the publisher) is not included in this repository; read it via the DOI above.
 
 For the Python implementation, please also acknowledge:
 ```
