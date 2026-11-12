@@ -1,6 +1,6 @@
 // Numeric helpers that follow numpy/pandas summation order, so the JS port agrees with Python to ~1e-15.
 // numpy's add.reduce is a pairwise sum (sequential below 8 elements, 8 accumulators up to 128, halves above; checked
-// bit for bit against numpy 2.5); np.mean = sum / n, np.std = sqrt(sum((x - mean)^2) / n) (ddof 0); pandas Series.mean/.sem use the same
+// bit for bit against numpy 2.5); np.mean = sum / n, np.std = sqrt(sum((x - mean)^2) / (n - ddof)); pandas Series.mean/.sem use the same
 // sums (sem with ddof 1) and skip NaN.
 
 function pairwise(a, lo, n) {
@@ -30,13 +30,13 @@ export function npSum(a) {
 
 export const npMean = a => (a.length ? npSum(a) / a.length : NaN);
 
-export function npStd(a) {
+export function npStd(a, ddof = 0) {
   const m = npSum(a) / a.length;
-  return Math.sqrt(npSum(a.map(v => { const d = v - m; return d * d; })) / a.length);
+  return Math.sqrt(npSum(a.map(v => { const d = v - m; return d * d; })) / (a.length - ddof));
 }
 
-// SEM as the repo computes it: np.std (ddof 0) / sqrt(n), NaN for a single value.
-export const semPop = a => (a.length > 1 ? npStd(a) / Math.sqrt(a.length) : NaN);
+// diper.utils.sem: sample s.e.m. = np.std(ddof=1) / sqrt(n), NaN for fewer than 2 values.
+export const sem = a => (a.length > 1 ? npStd(a, 1) / Math.sqrt(a.length) : NaN);
 
 // pandas Series.mean() and .sem() (ddof 1), skipping NaN.
 export function pdMean(a) {

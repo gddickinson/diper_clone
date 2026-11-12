@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, List, Optional, Tuple
 
+from diper.utils import sem as _sem
 from diper.utils import (
     split_trajectories,
     ensure_output_dir,
@@ -186,7 +187,7 @@ def run_speed_analysis(data: Dict[str, pd.DataFrame],
             
             # Add summary statistics
             grand_avg = np.mean(cell_avg_speeds)
-            sem = np.std(cell_avg_speeds) / np.sqrt(len(cell_avg_speeds)) if len(cell_avg_speeds) > 1 else np.nan
+            sem = _sem(cell_avg_speeds)
             
             summary = pd.DataFrame({
                 'Statistic': ['Grand Average', 'SEM', 'Cell Count'],

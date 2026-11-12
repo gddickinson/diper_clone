@@ -27,7 +27,7 @@ import pandas as pd  # noqa: E402
 
 from diper import autocorrel, autocorrel_3d, dir_ratio, msd, plot_at_origin, speed, vel_cor  # noqa: E402
 from diper.sparse_data import sparse_trajectory  # noqa: E402
-from diper.utils import load_data, split_trajectories  # noqa: E402
+from diper.utils import load_data, sem, split_trajectories  # noqa: E402
 
 MAX_SEGMENTS_RETURNED = 300  # tracks sent back for plotting (per condition); the analysis always uses all
 DEFAULTS = {"time_interval": 1.0, "max_intervals": 30, "sparse_n": 1,
@@ -82,7 +82,7 @@ def analyse_condition(name, raw: pd.DataFrame, dt: float, max_intervals: int, sp
     cell_speeds = [s for s in cell_speeds if np.isfinite(s)]
     out["speed"] = {"cells": _nums(cell_speeds),
                     "mean": _num(np.mean(cell_speeds)) if cell_speeds else None,
-                    "sem": _num(np.std(cell_speeds) / np.sqrt(len(cell_speeds))) if len(cell_speeds) > 1 else None}
+                    "sem": _num(sem(cell_speeds)) if len(cell_speeds) > 1 else None}
 
     # Dir_Ratio (run_dir_ratio_analysis; last-point mean +- SEM as plot_dir_ratio_last_point shows them)
     dr = [dir_ratio.calculate_directionality_ratio(t, dt_eff) for t in trajs]

@@ -117,6 +117,14 @@ def split_trajectories(df: pd.DataFrame) -> List[pd.DataFrame]:
     return trajectories
 
 
+def sem(values) -> float:
+    """Sample standard error of the mean: std with ddof=1 / sqrt(n); NaN for fewer than 2 values."""
+    values = np.asarray(values, dtype=float)
+    if len(values) < 2:
+        return np.nan
+    return float(np.std(values, ddof=1) / np.sqrt(len(values)))
+
+
 def ensure_output_dir(output_dir: str, subdir: Optional[str] = None) -> str:
     """
     Ensure the output directory exists, create it if it doesn't.

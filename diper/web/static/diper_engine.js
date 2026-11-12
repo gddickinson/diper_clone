@@ -3,21 +3,20 @@
 //   utils.split_trajectories   a new track starts wherever the frame number does not increase; 1-point tracks dropped
 //   sparse_data                keep rows 0, N, 2N... of each track; time interval becomes N x dt
 //   plot_at_origin             square area centred on (0, 0), half-width = ceil(1.1 x max |offset| / 10) x 10
-//   speed                      mean of step length / dt per cell; grand mean +- np.std / sqrt(n)
+//   speed                      mean of step length / dt per cell; grand mean +- s.e.m.
 //   dir_ratio                  d/D over elapsed time (row x dt), first point 1; averaged by time; last-point mean +- SEM
 //   msd                        overlapping intervals up to floor(L / 2) steps; alpha = slope of log10 MSD vs log10 t
 //                              over the first max(2, floor(0.1 x n)) averaged points
 //   autocorrel(_3d)            mean dot product of unit step vectors `step` apart (zero-length steps skipped)
 //   vel_cor                    <v_i . v_i+n> / <|v|^2> per track, steps up to max(2, floor(N / 3))
-// Per-track curves are averaged per time interval: mean and np.std / sqrt(n) (n = tracks), as the Python does.
-import { npSum, npMean, npStd, pdMean, pdSem, lineFit } from './diper_num.js';
+// Error bars are the sample s.e.m. (utils.sem: std ddof 1 / sqrt(n)), n = number of tracks.
+import { npSum, npMean, sem, pdMean, pdSem, lineFit } from './diper_num.js';
 import { readCondition } from './diper_csv.js';
 
 export const MAX_SEGMENTS_RETURNED = 300;
 const MSD_FRACTION = 0.5, ALPHA_FRACTION = 0.1, VEL_COR_FRACTION = 1 / 3;
 const num = v => (Number.isFinite(v) ? v : null);
 const nums = a => a.map(num);
-const semOf = a => (a.length > 1 ? npStd(a) / Math.sqrt(a.length) : NaN);
 
 // --- tracks -----------------------------------------------------------------------------------------------------
 function slice(t, a, b) {
@@ -55,15 +54,15 @@ export function sparseTrajectory(t, n) {
 export function averageCurves(curves) {
   const times = [...new Set(curves.flatMap(c => c.t))].sort((a, b) => a - b);
   const maps = curves.map(c => new Map(c.t.map((t, i) => [t, i])));
-  const avg = [], sem = [], n = [];
+  const avg = [], sems = [], n = [];
   for (const t of times) {
     const vals = [];
     curves.forEach((c, j) => { const i = maps[j].get(t); if (i !== undefined) vals.push(c.v[i]); });
     avg.push(vals.length ? npMean(vals) : NaN);
-    sem.push(semOf(vals));
+    sems.push(sem(vals));
     n.push(vals.length);
   }
-  return { t: times, avg, sem, n };
+  return { t: times, avg, sem: sems, n };
 }
 const jsonCurve = c => ({ t: nums(c.t), avg: nums(c.avg), sem: nums(c.sem), n: c.n });
 
@@ -191,7 +190,7 @@ export function analyseCondition(cond, dt, maxIntervals, sparseN, umPerPx) {
 
   const speeds = trajs.map(t => cellAverageSpeed(t, dtE)).filter(Number.isFinite);
   out.speed = { cells: nums(speeds), mean: speeds.length ? num(npMean(speeds)) : null,
-    sem: speeds.length > 1 ? num(npStd(speeds) / Math.sqrt(speeds.length)) : null };
+    sem: speeds.length > 1 ? num(sem(speeds)) : null };
 
   const dr = trajs.map(t => dirRatio(t, dtE)), last = dr.filter(d => d.v.length > 1).map(d => d.v[d.v.length - 1]);
   out.dir_ratio = { ...jsonCurve(averageCurves(dr)), last: nums(last),

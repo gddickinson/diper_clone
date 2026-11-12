@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
 
+from diper.utils import sem as _sem
 from diper.utils import (
     split_trajectories,
     ensure_output_dir,
@@ -152,7 +153,7 @@ def average_autocorrelation_results(all_autocorrs: List[pd.DataFrame]) -> pd.Dat
     for autocorrs in results['autocorrs']:
         if autocorrs:
             avg = np.mean(autocorrs)
-            sem = np.std(autocorrs) / np.sqrt(len(autocorrs)) if len(autocorrs) > 1 else np.nan
+            sem = _sem(autocorrs)
         else:
             avg = np.nan
             sem = np.nan

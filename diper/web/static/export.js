@@ -10,7 +10,7 @@ export function header(res, meta) {
     `# files: ${res.files.join('; ')}${meta.simulated ? ' (SIMULATED demo data, not measurements)' : ''}`,
     `# time_interval: ${res.time_interval} ${meta.timeUnit} per frame; sparse_n: ${res.sparse_n}; time interval used: ${res.dt_eff} ${meta.timeUnit}`,
     `# coordinates: ${res.um_per_px ? `pixels x ${res.um_per_px} um/px` : 'micrometres'}; lengths in um, speed in um/${meta.timeUnit}, MSD in um^2`,
-    `# autocorrelation intervals: ${res.max_intervals}; SEM = population std (ddof 0) / sqrt(n tracks), except d/D last point (ddof 1)`,
+    `# autocorrelation intervals: ${res.max_intervals}; SEM = sample std (ddof 1) / sqrt(n tracks)`,
   ];
 }
 

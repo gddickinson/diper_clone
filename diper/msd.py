@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
 
+from diper.utils import sem as _sem
 from diper.utils import (
     split_trajectories,
     ensure_output_dir,
@@ -147,7 +148,7 @@ def average_msd_results(all_msds: List[pd.DataFrame]) -> pd.DataFrame:
     for msds in results['msds']:
         if msds:
             avg = np.mean(msds)
-            sem = np.std(msds) / np.sqrt(len(msds)) if len(msds) > 1 else np.nan
+            sem = _sem(msds)
         else:
             avg = np.nan
             sem = np.nan

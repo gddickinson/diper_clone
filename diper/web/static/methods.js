@@ -10,8 +10,7 @@ route('methods', async () => {
     <div class="panel"><h3 style="margin-top:0">Tracks and averaging</h3>
       <p>A new track starts wherever the frame number does not increase from one row to the next; one-point tracks are dropped.
         Curves are computed per track, then averaged per time interval over the tracks that reach it: the error bar is
-        the s.e.m. = standard deviation (population, ddof 0) / √n, with n the number of tracks (<code>average_*_results</code>).
-        The Dir_Ratio last-point bar uses the sample s.e.m. (ddof 1), as <code>plot_dir_ratio_last_point</code> does.</p></div>
+        the sample s.e.m. = standard deviation (ddof 1) / √n, with n the number of tracks (<code>utils.sem</code>), for every program.</p></div>
     <div class="panel"><h3 style="margin-top:0">Speed <span class="tag">speed.py</span></h3>
       <p>Instantaneous speed |r<sub>i</sub> − r<sub>i−1</sub>| / Δt; each cell's average speed is their mean; the grand average is the mean over cells ± s.e.m.</p></div>
     <div class="panel"><h3 style="margin-top:0">Dir_Ratio <span class="tag">dir_ratio.py</span></h3>

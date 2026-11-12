@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
 
+from diper.utils import sem as _sem
 from diper.utils import (
     split_trajectories,
     ensure_output_dir,
@@ -101,7 +102,7 @@ def align_and_average_dir_ratios(all_trajectories: List[pd.DataFrame]) -> pd.Dat
     for ratios in results['dir_ratios']:
         if ratios:
             avg = np.mean(ratios)
-            sem = np.std(ratios) / np.sqrt(len(ratios)) if len(ratios) > 1 else np.nan
+            sem = _sem(ratios)
         else:
             avg = np.nan
             sem = np.nan

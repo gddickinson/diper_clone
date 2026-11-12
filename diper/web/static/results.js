@@ -47,7 +47,7 @@ export function renderResults(host, res, meta) {
       <div id="g-tracks"></div><p id="tracks-note" class="small mute"></p>`)}
     <div class="two">
       ${panel('p-speed', 'Speed', 'speed.py', `<div id="g-speed"></div><p class="small mute">Average speed of each cell (dots), mean (bar) ± s.e.m. (µm/${esc(tu)}).</p>`)}
-      ${panel('p-last', 'Dir_Ratio at the last point', 'dir_ratio.py', `<div id="g-last"></div><p class="small mute">d/D at each track's last point, mean ± s.e.m. (sample). Depends on track duration: compare the curve below.</p>`)}
+      ${panel('p-last', 'Dir_Ratio at the last point', 'dir_ratio.py', `<div id="g-last"></div><p class="small mute">d/D at each track's last point, mean ± s.e.m. Depends on track duration: compare the curve below.</p>`)}
     </div>
     <div class="two">
       ${panel('p-dr', 'Dir_Ratio over time', 'dir_ratio.py', `<div id="g-dr"></div><p class="small mute">Straight-line distance / path length versus elapsed time; mean ± s.e.m. over tracks.</p>`)}
