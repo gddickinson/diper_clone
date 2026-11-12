@@ -40,8 +40,9 @@ def calculate_normalized_velocity_autocorrelation(traj: pd.DataFrame,
     dx = dx.iloc[1:].reset_index(drop=True)
     dy = dy.iloc[1:].reset_index(drop=True)
     
-    # Calculate normalization factor (sum of squares of displacements)
-    norm = np.sum(dx**2 + dy**2) / (time_interval**2)
+    # Normalization factor (Gorelik & Gautreau 2014, eq 6): the MEAN squared velocity
+    # over the N displacements, Norm = 1/(N dt^2) * sum(dx^2 + dy^2)
+    norm = np.sum(dx**2 + dy**2) / (len(dx) * time_interval**2)
     
     # Maximum step size
     max_step = max(2, int(len(dx) * max_step_fraction))
