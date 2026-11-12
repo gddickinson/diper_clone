@@ -111,56 +111,13 @@ Cell2     | Exp1      | Cond1     | 1     | 16.1 | 19.2 | 5.2
 
 ## Usage
 
-DiPer can be used in two ways: as a command-line tool or as a Python library.
+DiPer is used as a Python library (below). There is no command-line entry point yet
+(`python -m diper.main` is not implemented; a CLI is listed in ROADMAP.md). For point-and-click
+use there is a web interface: `python run_web.py` (see the README, "Web interface").
 
 ### Command-line Interface
 
-#### Basic Usage
-```bash
-python -m diper.main --input trajectory_data.xlsx --output results --time-interval 1.0
-```
-
-#### Command-line Arguments
-
-| Argument | Short | Type | Default | Description |
-|----------|-------|------|---------|-------------|
-| `--input` | `-i` | str | Required | Input file path (Excel or CSV) |
-| `--output` | `-o` | str | "output" | Output directory |
-| `--time-interval` | `-t` | float | 1.0 | Time interval between frames |
-| `--analysis` | `-a` | str | "all" | Specific analysis to run |
-| `--sparse-factor` | `-n` | int | 3 | Factor for sparse_data (keep 1 of N frames) |
-| `--max-intervals` | `-m` | int | 30 | Max intervals for autocorrelation |
-| `--threshold` | | float | 0.0 | Threshold for autocorrel_nogaps |
-| `--plot-size` | | float | None | Plot area size for make_charts |
-| `--no-plots` | | flag | False | Disable plot generation |
-
-#### Analysis Options
-- `all` - Run all analyses (default)
-- `plot_at_origin` - Plot trajectories from origin
-- `make_charts` - Individual trajectory charts
-- `sparse_data` - Data sparsing
-- `speed` - Speed analysis
-- `dir_ratio` - Directionality ratio
-- `msd` - Mean Square Displacement
-- `autocorrel` - Direction autocorrelation
-- `autocorrel_nogaps` - Autocorrelation with gap handling
-- `autocorrel_3d` - 3D autocorrelation
-- `vel_cor` - Velocity autocorrelation
-
-#### Examples
-```bash
-# Run all analyses
-python -m diper.main -i data.xlsx -o results -t 0.5
-
-# Run only speed analysis
-python -m diper.main -i data.xlsx -o results -t 1.0 -a speed
-
-# Run MSD with custom parameters
-python -m diper.main -i data.xlsx -o results -t 2.0 -a msd -m 50
-
-# Run without generating plots
-python -m diper.main -i data.xlsx -o results --no-plots
-```
+Not implemented yet. `docs/usage_example.py` shows a complete workflow as a Python script.
 
 ### Python Library Usage
 
@@ -180,11 +137,9 @@ results = run_dir_ratio_analysis(data, time_interval=1.0, output_dir="results")
 #### Advanced Example
 ```python
 from diper.utils import load_data
-from diper import (
-    run_speed_analysis,
-    run_msd_analysis,
-    run_autocorrelation_analysis
-)
+from diper.speed import run_speed_analysis
+from diper.msd import run_msd_analysis
+from diper.autocorrel import run_autocorrelation_analysis
 
 # Load data
 data = load_data("experiment.xlsx")
@@ -409,8 +364,8 @@ output/
 ### Example 1: Basic Analysis Workflow
 ```bash
 # Step 1: Prepare your data in Excel with proper column structure
-# Step 2: Run complete analysis
-python -m diper.main -i migration_data.xlsx -o results -t 0.5
+# Step 2: Run the analyses (edit input_file and time_interval in the script first)
+python docs/usage_example.py
 
 # Step 3: Check results in the output directory
 ls results/

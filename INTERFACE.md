@@ -49,7 +49,7 @@
 - **test_msd.py** — Tests for MSD computation and averaging
 
 ## Data
-- **data/test.xlsx** — Example trajectory data for testing
+- `data/` is git-ignored: no example data is committed (the web interface uses simulated demo tracks)
 
 ## Configuration
 - **pyproject.toml** — Package metadata and build configuration
