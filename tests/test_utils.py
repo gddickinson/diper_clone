@@ -75,6 +75,38 @@ class TestSplitTrajectories(unittest.TestCase):
         self.assertEqual(list(result[1]['x']), [10.0, 11.0, 12.0])
 
 
+class TestLoadData(unittest.TestCase):
+    """Column layout of the DiPer format: columns 4-7 are frame, x, y and (optional) z."""
+
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
+
+    def test_csv_positional_columns_and_z(self):
+        from diper.utils import load_data
+        path = os.path.join(self.test_dir, "cond_a.csv")
+        pd.DataFrame({"Cell": ["c1"] * 3, "Exp": ["e"] * 3, "Cond": ["k"] * 3, "Frame": [1, 2, 3],
+                      "X": [0.0, 1.0, 2.0], "Y": [0.0, 0.5, 1.0], "Z": [5.0, 5.5, 6.0]}).to_csv(path, index=False)
+        data = load_data(path)
+        self.assertEqual(list(data), ["cond_a"])
+        df = data["cond_a"]
+        self.assertEqual(list(df.columns[3:7]), ["frame", "x", "y", "z"])
+        self.assertEqual(list(df["z"]), [5.0, 5.5, 6.0])
+
+    def test_seven_column_file_runs_3d(self):
+        from diper.autocorrel_3d import run_autocorrelation_3d_analysis
+        from diper.utils import load_data
+        path = os.path.join(self.test_dir, "cond3d.csv")
+        n = 12
+        pd.DataFrame({"a": [0] * n, "b": [0] * n, "c": [0] * n, "Frame": range(1, n + 1),
+                      "X": np.arange(n, dtype=float), "Y": np.zeros(n), "Z": np.arange(n) * 0.5}).to_csv(path, index=False)
+        res = run_autocorrelation_3d_analysis(load_data(path), time_interval=1.0, max_intervals=5,
+                                              output_dir=os.path.join(self.test_dir, "out"))
+        self.assertIn("cond3d", res)
+
+
 class TestEnsureOutputDir(unittest.TestCase):
     """Tests for directory creation."""
 

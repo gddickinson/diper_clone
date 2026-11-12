@@ -89,7 +89,7 @@ Data should be organized with the following columns:
 | 4 | 3 | Frame number | Yes |
 | 5 | 4 | X coordinate | Yes |
 | 6 | 5 | Y coordinate | Yes |
-| 7 | 6 | Z coordinate (for 3D analysis) | Optional |
+| 7 | 6 | Z coordinate (for 3D analysis; named `z` whatever its header) | Optional |
 
 ### Important Notes
 - **Frame numbers** must increase monotonically within each trajectory

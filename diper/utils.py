@@ -8,6 +8,16 @@ import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Optional, Union, Any
 
 
+def _standard_columns(columns: List[Any]) -> List[Any]:
+    """DiPer layout: columns 1-3 metadata, 4 frame, 5 x, 6 y, 7 z (optional, for Autocorrel_3D).
+
+    Column 7 is named 'z' whatever its header, since autocorrel_3d looks for a 'z' column;
+    any further columns keep their own headers.
+    """
+    names = ['col1', 'col2', 'col3', 'frame', 'x', 'y', 'z']
+    return names[:len(columns)] + columns[len(names):]
+
+
 def load_data(file_path: str) -> Dict[str, pd.DataFrame]:
     """
     Load trajectory data from an Excel or CSV file.
@@ -31,11 +41,8 @@ def load_data(file_path: str) -> Dict[str, pd.DataFrame]:
                 print(f"Warning: Sheet {sheet_name} doesn't have enough columns. Skipping.")
                 continue
 
-            # Rename columns to standard format
-            # Frame, X, Y are in columns 4, 5, 6 (index 3, 4, 5)
-            columns = list(df.columns)
             df = df.copy()
-            df.columns = ['col1', 'col2', 'col3', 'frame', 'x', 'y'] + columns[6:]
+            df.columns = _standard_columns(list(df.columns))
 
             processed_data[sheet_name] = df
 
@@ -49,9 +56,7 @@ def load_data(file_path: str) -> Dict[str, pd.DataFrame]:
         if len(df.columns) < 6:
             raise ValueError("CSV file doesn't have enough columns.")
 
-        # Rename columns to standard format
-        columns = list(df.columns)
-        df.columns = ['col1', 'col2', 'col3', 'frame', 'x', 'y'] + columns[6:]
+        df.columns = _standard_columns(list(df.columns))
 
         # Use filename as the key
         filename = os.path.splitext(os.path.basename(file_path))[0]
