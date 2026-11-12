@@ -67,23 +67,18 @@ def determine_plot_area(all_trajectories: List[pd.DataFrame]) -> Tuple[float, fl
         # Default if no trajectories
         return -10, 10, -10, 10
     
-    # Find the overall min and max
-    min_x, max_x = min(all_mins_x), max(all_maxs_x)
-    min_y, max_y = min(all_mins_y), max(all_maxs_y)
-    
-    # Find the maximum range in either dimension
-    range_x = max_x - min_x
-    range_y = max_y - min_y
-    L = max(range_x, range_y)
-    
-    # Add a margin (10% on each side)
-    margin = 0.1 * L
-    
-    # Round to a nice number as in the original code
-    L = np.ceil(1.1 * L / 10) * 10
-    
+    # Every track starts at the origin, so the square area is centred on (0, 0): its half-width
+    # is the largest distance from the origin along x or y, plus 10%, rounded up to a multiple
+    # of 10 (as in the original code). Using the overall range here clipped tracks that all
+    # head the same way.
+    extent = max(abs(min(all_mins_x)), abs(max(all_maxs_x)),
+                 abs(min(all_mins_y)), abs(max(all_maxs_y)))
+    half = float(np.ceil(1.1 * extent / 10) * 10)
+    if half == 0:
+        half = 10.0
+
     # Return plot limits
-    return -L/2, L/2, -L/2, L/2
+    return -half, half, -half, half
 
 
 def plot_all_trajectories(all_trajectories: List[pd.DataFrame], 
