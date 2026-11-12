@@ -63,6 +63,17 @@ class TestSplitTrajectories(unittest.TestCase):
         result = split_trajectories(df)
         self.assertGreaterEqual(len(result), 2)
 
+    def test_non_default_index(self):
+        """Track boundaries are found by position, so a filtered/re-indexed DataFrame splits correctly."""
+        df = pd.DataFrame({
+            'frame': [1, 2, 3, 1, 2, 3],
+            'x': [0.0, 1.0, 2.0, 10.0, 11.0, 12.0],
+            'y': [0.0, 0.0, 0.0, 5.0, 5.0, 5.0],
+        }, index=[10, 11, 12, 20, 21, 22])
+        result = split_trajectories(df)
+        self.assertEqual([len(t) for t in result], [3, 3])
+        self.assertEqual(list(result[1]['x']), [10.0, 11.0, 12.0])
+
 
 class TestEnsureOutputDir(unittest.TestCase):
     """Tests for directory creation."""

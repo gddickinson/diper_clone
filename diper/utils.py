@@ -85,7 +85,9 @@ def split_trajectories(df: pd.DataFrame) -> List[pd.DataFrame]:
     # Find indices where frame number doesn't increase (excluding first NaN)
     # This includes both decreases and cases where frame numbers stay the same
     reset_mask = (frame_diffs <= 0) & (~frame_diffs.isna())
-    traj_starts = [0] + list(df.index[reset_mask]) + [len(df)]
+    # Positions (not index labels): the segments below are cut with iloc, so a DataFrame
+    # whose index is not 0..n-1 (filtered or concatenated) must still split at the right rows.
+    traj_starts = [0] + [int(i) for i in np.flatnonzero(reset_mask.to_numpy())] + [len(df)]
 
     # Remove duplicates and sort
     traj_starts = sorted(list(set(traj_starts)))
