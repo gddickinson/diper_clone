@@ -35,3 +35,8 @@ summary, 3 CSV exports), Methods, Data format, About. Left out of the web: Autoc
 
 **Tests** (after the follow-up): `pytest tests` 82 passed; node engine test ok (5 cases, worst 9.77e-16); screenshots.py --static and --base all ok,
 no overflow at 390 px.
+
+## 2026-11-12: git history rewrite (approved by George)
+- Purged from all history with git-filter-repo and force-pushed: the Gorelik & Gautreau 2014 paper PDF (docs/).
+  The current tree is unchanged (identical HEAD tree before/after); commit hashes changed, so old clones must be
+  re-cloned or reset to origin. A pre-rewrite mirror backup was kept outside the repo.
