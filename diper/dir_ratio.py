@@ -34,8 +34,10 @@ def calculate_directionality_ratio(traj: pd.DataFrame, time_interval: float) -> 
     # Create a copy to avoid modifying the original
     traj = traj.copy()
     
-    # Calculate time column
-    traj['time'] = traj['frame'] * time_interval
+    # Elapsed time since the first point of this track: consecutive rows are one
+    # time_interval apart (as in MSD/Autocorrel), so all tracks align at t = 0 whatever
+    # their frame numbers (absolute frames, or frames left by Sparse_Data).
+    traj['time'] = np.arange(len(traj)) * time_interval
     
     # Calculate distances between consecutive points
     dx = traj['x'].diff()
