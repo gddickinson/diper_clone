@@ -10,7 +10,7 @@ Each uploaded CSV (one condition) or Excel sheet (one condition per sheet) is re
   3. tracks: `utils.split_trajectories`;
   4. the analyses, called exactly as the run_* functions call them (minus their file/plot output):
      Plot_At_Origin (`determine_plot_area`), Speed, Dir_Ratio, MSD (+ alpha), Autocorrel, Autocorrel_3D (when a 7th
-     column is present), Vel_Cor.
+     column is present), Vel_Cor; the autocorrelations are averaged over cells per `weighting` (default: paper eq 5).
 
 The JSON shape is the one diper_engine.js (the JS port used on the static site) produces; the fixture test checks both.
 """
@@ -27,10 +27,10 @@ import pandas as pd  # noqa: E402
 
 from diper import autocorrel, autocorrel_3d, dir_ratio, msd, plot_at_origin, speed, vel_cor  # noqa: E402
 from diper.sparse_data import sparse_trajectory  # noqa: E402
-from diper.utils import load_data, sem, split_trajectories  # noqa: E402
+from diper.utils import WEIGHTINGS, load_data, sem, split_trajectories, track_weights  # noqa: E402
 
 MAX_SEGMENTS_RETURNED = 300  # tracks sent back for plotting (per condition); the analysis always uses all
-DEFAULTS = {"time_interval": 1.0, "max_intervals": 30, "sparse_n": 1,
+DEFAULTS = {"time_interval": 1.0, "max_intervals": 30, "sparse_n": 1, "weighting": "displacements",
             "msd_max_interval_fraction": 0.5, "msd_alpha_fraction": 0.1, "vel_cor_max_step_fraction": 1 / 3}
 
 
@@ -62,7 +62,8 @@ def prepare(raw: pd.DataFrame, um_per_px):
     return clean, len(df) - len(clean), has_z, z_ok
 
 
-def analyse_condition(name, raw: pd.DataFrame, dt: float, max_intervals: int, sparse_n: int, um_per_px) -> dict:
+def analyse_condition(name, raw: pd.DataFrame, dt: float, max_intervals: int, sparse_n: int, um_per_px,
+                      weighting: str = "displacements") -> dict:
     """Run every 2D analysis (and Autocorrel_3D if column 7 holds numbers) on one condition."""
     clean, n_dropped, has_z, z_ok = prepare(raw, um_per_px)
     out = {"name": str(name), "n_rows": len(raw), "n_dropped": n_dropped, "has_z": has_z, "z_used": z_ok}
@@ -104,23 +105,28 @@ def analyse_condition(name, raw: pd.DataFrame, dt: float, max_intervals: int, sp
     out["msd"] = {**_curve(msd_avg, "time_interval", "avg_msd"), "alpha": _num(alpha), "r2": _num(r2), "n_fit": n_fit}
 
     # Autocorrel (run_autocorrelation_analysis)
-    vecs = [autocorrel.normalize_vectors(t) for t in trajs]
-    ac = [autocorrel.calculate_autocorrelation(v, dt_eff, max_intervals) for v in vecs if len(v) > 1]
-    out["autocorr"] = _curve(autocorrel.average_autocorrelation_results(ac), "time_interval", "avg_autocorr") if ac else None
+    # (population average per `weighting`: displacements = paper eq 5, tracks = plain mean of per-cell curves)
+    vecs = [v for v in (autocorrel.normalize_vectors(t) for t in trajs) if len(v) > 1]
+    ac = [autocorrel.calculate_autocorrelation(v, dt_eff, max_intervals) for v in vecs]
+    w = track_weights(weighting, [len(v) for v in vecs])
+    out["autocorr"] = _curve(autocorrel.average_autocorrelation_results(ac, w), "time_interval", "avg_autocorr") if ac else None
 
     # Autocorrel_3D (run_autocorrelation_3d_analysis), only with a usable z column
     out["autocorr3d"] = None
     if z_ok:
-        v3 = [autocorrel_3d.normalize_vectors_3d(t) for t in trajs]
-        ac3 = [autocorrel_3d.calculate_autocorrelation_3d(v, dt_eff, max_intervals) for v in v3 if len(v) > 1]
+        v3 = [v for v in (autocorrel_3d.normalize_vectors_3d(t) for t in trajs) if len(v) > 1]
+        ac3 = [autocorrel_3d.calculate_autocorrelation_3d(v, dt_eff, max_intervals) for v in v3]
         if ac3:
-            out["autocorr3d"] = _curve(autocorrel_3d.average_autocorrelation_results(ac3), "time_interval", "avg_autocorr")
+            w3 = track_weights(weighting, [len(v) for v in v3])
+            out["autocorr3d"] = _curve(autocorrel_3d.average_autocorrelation_results(ac3, w3), "time_interval", "avg_autocorr")
 
     # Vel_Cor (run_vel_cor_analysis)
+    used = [t for t in trajs if len(t) > 2]
     with np.errstate(all="ignore"):
         vc = [vel_cor.calculate_normalized_velocity_autocorrelation(t, dt_eff, DEFAULTS["vel_cor_max_step_fraction"])
-              for t in trajs if len(t) > 2]
-    out["vel_cor"] = _curve(vel_cor.average_vel_autocorr_results(vc), "time_interval", "avg_vel_autocorr") if vc else None
+              for t in used]
+        wv = track_weights(weighting, [len(t) - 1 for t in used])
+        out["vel_cor"] = _curve(vel_cor.average_vel_autocorr_results(vc, wv), "time_interval", "avg_vel_autocorr") if vc else None
     return out
 
 
@@ -131,7 +137,8 @@ def _safe_name(filename: str) -> str:
     return stem + ext.lower()
 
 
-def analyse_files(files, time_interval: float, max_intervals: int, sparse_n: int = 1, um_per_px=None) -> dict:
+def analyse_files(files, time_interval: float, max_intervals: int, sparse_n: int = 1, um_per_px=None,
+                  weighting: str = "displacements") -> dict:
     """files: [(filename, bytes)]. One condition per CSV file, one per Excel sheet. Raises ValueError on bad settings."""
     if not (time_interval > 0):
         raise ValueError("The time interval must be a positive number.")
@@ -139,6 +146,8 @@ def analyse_files(files, time_interval: float, max_intervals: int, sparse_n: int
         raise ValueError("The number of intervals and the sparse factor must be at least 1.")
     if um_per_px is not None and not (um_per_px > 0):
         raise ValueError("The pixel size must be a positive number (um per pixel).")
+    if weighting not in WEIGHTINGS:
+        raise ValueError(f"weighting must be one of {', '.join(WEIGHTINGS)}.")
     if not files:
         raise ValueError("No file given.")
     conditions, seen = [], {}
@@ -163,8 +172,8 @@ def analyse_files(files, time_interval: float, max_intervals: int, sparse_n: int
                 seen[label] = seen.get(label, 0) + 1
                 if seen[label] > 1:
                     label = f"{label} ({seen[label]})"
-                conditions.append(analyse_condition(label, df, time_interval, max_intervals, sparse_n, um_per_px))
+                conditions.append(analyse_condition(label, df, time_interval, max_intervals, sparse_n, um_per_px, weighting))
             os.remove(path)
     return {"engine": "python", "files": [f for f, _ in files], "time_interval": time_interval,
             "max_intervals": max_intervals, "sparse_n": sparse_n, "dt_eff": time_interval * sparse_n,
-            "um_per_px": um_per_px, "conditions": conditions}
+            "um_per_px": um_per_px, "weighting": weighting, "conditions": conditions}

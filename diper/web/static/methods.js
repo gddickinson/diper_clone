@@ -9,7 +9,10 @@ route('methods', async () => {
       taken Δt apart (the time interval you enter); consecutive rows are treated as consecutive frames.</p>
     <div class="panel"><h3 style="margin-top:0">Tracks and averaging</h3>
       <p>A new track starts wherever the frame number does not increase from one row to the next; one-point tracks are dropped.
-        Curves are computed per track, then averaged per time interval over the tracks that reach it: the error bar is
+        Curves are computed per track, then averaged per time interval over the tracks that reach it. For Autocorrel,
+        Autocorrel_3D and Vel_Cor the average weights each cell by its number of displacements N<sub>j</sub>, as in the paper's
+        eq 5, ⟨DA⟩ = Σ DA<sub>j</sub> N<sub>j</sub> / Σ N<sub>k</sub>, so longer tracks count more (the plain mean of the per-cell curves is an
+        option); MSD, Dir_Ratio and Speed use the plain mean, as in the paper. The error bar is
         the sample s.e.m. = standard deviation (ddof 1) / √n, with n the number of tracks (<code>utils.sem</code>), for every program.</p></div>
     <div class="panel"><h3 style="margin-top:0">Speed <span class="tag">speed.py</span></h3>
       <p>Instantaneous speed |r<sub>i</sub> − r<sub>i−1</sub>| / Δt; each cell's average speed is their mean; the grand average is the mean over cells ± s.e.m.</p></div>

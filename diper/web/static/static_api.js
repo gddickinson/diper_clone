@@ -15,7 +15,7 @@ export async function staticApi(path, body) {
     const list = body ? body.getAll('files') : [];
     if (!list.length) throw new Error('No file given.');
     const texts = await Promise.all(list.map(async f => ({ name: f.name, text: /\.csv$/i.test(f.name) ? await f.text() : '' })));
-    return analyseFiles(texts, body.get('time_interval'), body.get('max_intervals'), body.get('sparse_n'), body.get('um_per_px') || null);
+    return analyseFiles(texts, body.get('time_interval'), body.get('max_intervals'), body.get('sparse_n'), body.get('um_per_px') || null, body.get('weighting') || 'displacements');
   }
   return file(clean);
 }

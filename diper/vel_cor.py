@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
 
 from diper.utils import sem as _sem
+from diper.utils import average_curves, track_weights
 from diper.utils import (
     split_trajectories,
     ensure_output_dir,
@@ -89,63 +90,23 @@ def calculate_normalized_velocity_autocorrelation(traj: pd.DataFrame,
     return results
 
 
-def average_vel_autocorr_results(all_vel_autocorrs: List[pd.DataFrame]) -> pd.DataFrame:
+def average_vel_autocorr_results(all_vel_autocorrs: List[pd.DataFrame],
+                                 weights: Optional[List[float]] = None) -> pd.DataFrame:
     """
-    Average velocity autocorrelation results from multiple trajectories.
-    
+    Average per-cell results at each time interval (columns time_interval, avg_vel_autocorr, sem, n).
+
     Parameters:
-        all_vel_autocorrs: List of velocity autocorrelation result DataFrames
-    
+        all_vel_autocorrs: List of per-cell result DataFrames
+        weights: None for the plain mean of the cells, or one weight per cell (its number of
+            displacements) for the population average of Gorelik & Gautreau 2014, eq 5
+
     Returns:
-        DataFrame with averaged results
+        DataFrame with averaged results; sem is the sample s.e.m. of the per-cell values
     """
     if not all_vel_autocorrs:
         return pd.DataFrame(columns=['time_interval', 'avg_vel_autocorr', 'sem', 'n'])
-    
-    # Collect all unique time intervals
-    all_time_intervals = set()
-    for autocorr_df in all_vel_autocorrs:
-        all_time_intervals.update(autocorr_df['time_interval'].values)
-    
-    all_time_intervals = sorted(all_time_intervals)
-    
-    # Initialize results
-    results = {
-        'time_interval': all_time_intervals,
-        'vel_autocorrs': [[] for _ in all_time_intervals]
-    }
-    
-    # Collect autocorrelations for each time interval
-    for autocorr_df in all_vel_autocorrs:
-        for i, t in enumerate(all_time_intervals):
-            matching_rows = autocorr_df[autocorr_df['time_interval'] == t]
-            if not matching_rows.empty:
-                results['vel_autocorrs'][i].append(matching_rows['vel_autocorr'].iloc[0])
-    
-    # Calculate averages and SEMs
-    avg_autocorrs = []
-    sems = []
-    
-    for autocorrs in results['vel_autocorrs']:
-        if autocorrs:
-            avg = np.mean(autocorrs)
-            sem = _sem(autocorrs)
-        else:
-            avg = np.nan
-            sem = np.nan
-        
-        avg_autocorrs.append(avg)
-        sems.append(sem)
-    
-    # Create results DataFrame
-    df_results = pd.DataFrame({
-        'time_interval': results['time_interval'],
-        'avg_vel_autocorr': avg_autocorrs,
-        'sem': sems,
-        'n': [len(autocorrs) for autocorrs in results['vel_autocorrs']]
-    })
-    
-    return df_results
+    out = average_curves(all_vel_autocorrs, 'time_interval', 'vel_autocorr', weights)
+    return out.rename(columns={'avg': 'avg_vel_autocorr'})
 
 
 def plot_vel_autocorrelation(vel_autocorr_results: Dict[str, pd.DataFrame],
@@ -194,7 +155,8 @@ def plot_vel_autocorrelation(vel_autocorr_results: Dict[str, pd.DataFrame],
 def run_vel_cor_analysis(data: Dict[str, pd.DataFrame], 
                         time_interval: float,
                         max_step_fraction: float = 1/3,
-                        output_dir: str = "output") -> Dict[str, pd.DataFrame]:
+                        output_dir: str = "output",
+                        weighting: str = "displacements") -> Dict[str, pd.DataFrame]:
     """
     Run the Normalized Velocity Autocorrelation analysis for all conditions.
     
@@ -203,6 +165,7 @@ def run_vel_cor_analysis(data: Dict[str, pd.DataFrame],
         time_interval: Time interval between frames
         max_step_fraction: Maximum step size as a fraction of trajectory length
         output_dir: Directory to save output
+        weighting: 'displacements' (default; paper eq 5) or 'tracks' (plain mean of the per-cell curves)
     
     Returns:
         Dictionary of velocity autocorrelation results
@@ -222,9 +185,11 @@ def run_vel_cor_analysis(data: Dict[str, pd.DataFrame],
         print(f"  Found {len(trajectories)} trajectories")
         
         # Calculate velocity autocorrelation for each trajectory
+        used = [traj for traj in trajectories if len(traj) > 2]
         vel_autocorr_results = [calculate_normalized_velocity_autocorrelation(
-            traj, time_interval, max_step_fraction) 
-            for traj in trajectories if len(traj) > 2]
+            traj, time_interval, max_step_fraction) for traj in used]
+        # Averaging as in eq 5 (the paper applies it to Vel_Cor too): weights = displacements per cell
+        weights = track_weights(weighting, [len(traj) - 1 for traj in used])
         
         # Skip if no valid results
         if not vel_autocorr_results:
@@ -232,7 +197,7 @@ def run_vel_cor_analysis(data: Dict[str, pd.DataFrame],
             continue
         
         # Average velocity autocorrelation results
-        avg_vel_autocorr = average_vel_autocorr_results(vel_autocorr_results)
+        avg_vel_autocorr = average_vel_autocorr_results(vel_autocorr_results, weights)
         
         # Store results
         all_vel_autocorr_results[condition_name] = avg_vel_autocorr

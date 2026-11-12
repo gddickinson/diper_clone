@@ -305,6 +305,12 @@ for condition, result in speed_results.items():
 **Calculations**:
 - Velocity autocorrelation = ⟨v(t)·v(t+τ)⟩ / ⟨v²⟩
 
+### Averaging over cells (Autocorrel, Autocorrel_3D, Autocorrel_NoGaps, Vel_Cor)
+`weighting="displacements"` (default) averages the per-cell curves weighted by each cell's number of
+displacements N_j, as in Gorelik & Gautreau 2014, eq 5: ⟨DA⟩ = Σ DA_j·N_j / Σ N_k, so longer tracks count more.
+`weighting="tracks"` gives the plain mean of the per-cell curves. MSD, Dir_Ratio and Speed use the plain mean.
+Error bars everywhere are the sample s.e.m. of the per-cell values (std with ddof=1 / √n).
+
 ---
 
 ## Output Files

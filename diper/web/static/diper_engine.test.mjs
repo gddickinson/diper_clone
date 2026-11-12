@@ -4,7 +4,7 @@
 // inputs in tests/fixtures/diper_fixture.json (regenerate with: python scripts/make_diper_fixture.py).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { analyseFiles, maxDifference, splitTrajectories, velCorCurve, dirRatio, originArea } from './diper_engine.js';
+import { analyseFiles, maxDifference, splitTrajectories, velCorCurve, dirRatio, originArea, averageCurves } from './diper_engine.js';
 import { toNum, conditionName } from './diper_csv.js';
 import { simulateFiles, DEMO } from './diper_sim.js';
 
@@ -13,7 +13,7 @@ const fx = JSON.parse(readFileSync(new URL('../../../tests/fixtures/diper_fixtur
 let worst = 0, values = 0;
 const count = o => (typeof o === 'number' ? 1 : o && typeof o === 'object' ? Object.values(o).reduce((s, v) => s + count(v), 0) : 0);
 for (const c of fx.cases) {
-  const got = analyseFiles(c.files, c.time_interval, c.max_intervals, c.sparse_n, c.um_per_px);
+  const got = analyseFiles(c.files, c.time_interval, c.max_intervals, c.sparse_n, c.um_per_px, c.weighting);
   const exp = c.expected;
   assert.equal(got.conditions.length, exp.conditions.length, c.name);
   got.conditions.forEach((g, i) => {
@@ -40,6 +40,12 @@ assert.deepEqual(dirRatio({ x: [3, 4, 4], y: [0, 0, 1] }, 2).t, [0, 2, 4], 'Dir_
 assert.deepEqual(originArea([{ x: [0, 42], y: [0, -7] }]), [-50, 50, -50, 50]);
 assert.ok(Number.isNaN(toNum('0x10')) && toNum(' 2.5e1 ') === 25 && Number.isNaN(toNum('NA')));
 assert.equal(conditionName('dir/My cells.CSV'), 'My cells');
+// Eq 5: a straight cell (10 displacements, DA 1) and a there-and-back cell (2 displacements, DA -1).
+const two = [{ t: [1], v: [1] }, { t: [1], v: [-1] }];
+assert.ok(Math.abs(averageCurves(two, [10, 2]).avg[0] - 8 / 12) < 1e-15, 'weighted by displacements');
+assert.equal(averageCurves(two).avg[0], 0, 'unweighted per-track mean');
+assert.ok(Math.abs(averageCurves(two).sem[0] - 1) < 1e-15, 'sample s.e.m. (ddof 1): sqrt(2)/sqrt(2)');
+assert.throws(() => analyseFiles([{ name: 'a.csv', text: 'a,b,c,f,x,y\n' }], 1, 5, 1, null, 'cells'), /weighting/);
 assert.throws(() => analyseFiles([{ name: 'a.xlsx', text: '' }], 1, 5), /Excel/);
 assert.throws(() => analyseFiles([{ name: 'a.csv', text: 'a,b,c,f,x,y\n' }], 0, 5), /positive/);
 

@@ -17,6 +17,9 @@ function notes(res, meta, ok, bad) {
   ok.filter(c => c.has_z && !c.z_used).forEach(c => out.push(`${esc(c.name)}: the 7th (z) column has missing or non-numeric values, so Autocorrel_3D was skipped.`));
   ok.filter(c => c.n_tracks > meta.maxSegments).forEach(c => out.push(`${esc(c.name)}: the track plots show the first ${meta.maxSegments} of ${c.n_tracks} tracks; the analyses use all of them.`));
   if (res.sparse_n > 1) out.push(`Sparse_Data: 1 of every ${res.sparse_n} frames kept, so the time interval used is ${res.sparse_n} × ${res.time_interval} = ${+res.dt_eff.toPrecision(10)} ${esc(meta.timeUnit)}.`);
+  out.push(res.weighting === 'tracks'
+    ? 'Autocorrel and Vel_Cor: plain mean of the per-cell curves (option chosen; the paper weights cells by their number of displacements).'
+    : 'Autocorrel and Vel_Cor: cells weighted by their number of displacements, as in the paper (eq 5).');
   out.push(res.um_per_px ? `Coordinates in pixels × ${res.um_per_px} µm/px, so all lengths below are in µm.` : 'Coordinates taken as µm.');
   if (meta.check !== null && meta.check !== undefined) {
     out.push(Number.isFinite(meta.check) && meta.check < 1e-9
@@ -54,7 +57,7 @@ export function renderResults(host, res, meta) {
       ${panel('p-msd', 'MSD', 'msd.py', `<label><input id="v-msdlog" type="checkbox" checked> log-log axes</label><div id="g-msd"></div><p class="small mute">Mean square displacement ± s.e.m. (µm²); α in the legend.</p>`)}
     </div>
     <div class="two">
-      ${panel('p-ac', 'Direction autocorrelation', any3d ? 'autocorrel.py · autocorrel_3d.py' : 'autocorrel.py', `${any3d ? '<label><input id="v-3d" type="checkbox"> 3D (x, y, z)</label>' : ''}<div id="g-ac"></div><p class="small mute">Mean cos θ between step directions a time interval apart ± s.e.m. over tracks.</p>`)}
+      ${panel('p-ac', 'Direction autocorrelation', any3d ? 'autocorrel.py · autocorrel_3d.py' : 'autocorrel.py', `${any3d ? '<label><input id="v-3d" type="checkbox"> 3D (x, y, z)</label>' : ''}<div id="g-ac"></div><p class="small mute">Mean cos θ between step directions a time interval apart (population average, see notes) ± s.e.m. over tracks.</p>`)}
       ${panel('p-vc', 'Velocity autocorrelation', 'vel_cor.py', `<div id="g-vc"></div><p class="small mute">⟨v(t)·v(t+τ)⟩ / ⟨v²⟩ per track, mean ± s.e.m. over tracks.</p>`)}
     </div>
     ${panel('p-sum', 'Summary', 'all programs', `<div class="scroll" id="t-sum"></div>

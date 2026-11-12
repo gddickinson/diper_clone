@@ -125,6 +125,38 @@ def sem(values) -> float:
     return float(np.std(values, ddof=1) / np.sqrt(len(values)))
 
 
+WEIGHTINGS = ("displacements", "tracks")
+
+
+def average_curves(curves: List[pd.DataFrame], time_col: str, value_col: str,
+                   weights: Optional[List[float]] = None) -> pd.DataFrame:
+    """Average per-cell curves at each time interval: columns time_col, 'avg', 'sem', 'n'.
+
+    weights=None gives the plain mean of the cells reaching each interval. With one weight per curve
+    (the number of displacements N_j of cell j), the mean is sum(v_j N_j) / sum(N_j) over those cells,
+    Gorelik & Gautreau 2014, eq 5. The error bar is always the sample s.e.m. of the per-cell values.
+    """
+    if weights is not None and len(weights) != len(curves):
+        raise ValueError("average_curves: one weight per curve is needed")
+    times = sorted({t for c in curves for t in c[time_col].values})
+    vals = {t: [] for t in times}
+    wts = {t: [] for t in times}
+    for j, c in enumerate(curves):  # each curve has one row per time interval
+        for t, v in zip(c[time_col].values, c[value_col].values):
+            vals[t].append(v)
+            wts[t].append(1.0 if weights is None else weights[j])
+    avg = [np.mean(vals[t]) if weights is None else np.average(vals[t], weights=wts[t]) for t in times]
+    return pd.DataFrame({time_col: times, "avg": avg, "sem": [sem(vals[t]) for t in times],
+                         "n": [len(vals[t]) for t in times]})
+
+
+def track_weights(weighting: str, n_displacements: List[int]) -> Optional[List[int]]:
+    """Weights for average_curves: 'displacements' (paper eq 5) or 'tracks' (unweighted per-track mean)."""
+    if weighting not in WEIGHTINGS:
+        raise ValueError(f"weighting must be one of {WEIGHTINGS}, not {weighting!r}")
+    return list(n_displacements) if weighting == "displacements" else None
+
+
 def ensure_output_dir(output_dir: str, subdir: Optional[str] = None) -> str:
     """
     Ensure the output directory exists, create it if it doesn't.

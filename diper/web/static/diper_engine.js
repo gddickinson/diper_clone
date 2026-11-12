@@ -9,6 +9,8 @@
 //                              over the first max(2, floor(0.1 x n)) averaged points
 //   autocorrel(_3d)            mean dot product of unit step vectors `step` apart (zero-length steps skipped)
 //   vel_cor                    <v_i . v_i+n> / <|v|^2> per track, steps up to max(2, floor(N / 3))
+// Autocorrel(_3D) and Vel_Cor are averaged over cells as in the paper's eq 5 (weights = displacements per cell), or
+// as the plain mean of per-cell curves with weighting 'tracks' (utils.average_curves / track_weights).
 // Error bars are the sample s.e.m. (utils.sem: std ddof 1 / sqrt(n)), n = number of tracks.
 import { npSum, npMean, sem, pdMean, pdSem, lineFit } from './diper_num.js';
 import { readCondition } from './diper_csv.js';
@@ -51,14 +53,15 @@ export function sparseTrajectory(t, n) {
 }
 
 // --- averaging over tracks (average_*_results / align_and_average_dir_ratios) ------------------------------------
-export function averageCurves(curves) {
+export function averageCurves(curves, weights = null) {
   const times = [...new Set(curves.flatMap(c => c.t))].sort((a, b) => a - b);
   const maps = curves.map(c => new Map(c.t.map((t, i) => [t, i])));
   const avg = [], sems = [], n = [];
   for (const t of times) {
-    const vals = [];
-    curves.forEach((c, j) => { const i = maps[j].get(t); if (i !== undefined) vals.push(c.v[i]); });
-    avg.push(vals.length ? npMean(vals) : NaN);
+    const vals = [], w = [];
+    curves.forEach((c, j) => { const i = maps[j].get(t); if (i !== undefined) { vals.push(c.v[i]); if (weights) w.push(weights[j]); } });
+    // np.average: sum(v * w) / sum(w)
+    avg.push(!vals.length ? NaN : weights ? npSum(vals.map((v, k) => v * w[k])) / npSum(w) : npMean(vals));
     sems.push(sem(vals));
     n.push(vals.length);
   }
@@ -171,7 +174,10 @@ export function originArea(tracks) {
 }
 
 // --- one condition (analysis.analyse_condition) ------------------------------------------------------------------
-export function analyseCondition(cond, dt, maxIntervals, sparseN, umPerPx) {
+export const WEIGHTINGS = ['displacements', 'tracks'];
+const trackWeights = (weighting, nDisp) => (weighting === 'displacements' ? nDisp : null);
+
+export function analyseCondition(cond, dt, maxIntervals, sparseN, umPerPx, weighting = 'displacements') {
   const hasZ = !!cond.z, keep = [];
   for (let i = 0; i < cond.frame.length; i++) if (!Number.isNaN(cond.frame[i]) && !Number.isNaN(cond.x[i]) && !Number.isNaN(cond.y[i])) keep.push(i);
   const pick = a => keep.map(i => a[i]);
@@ -200,24 +206,25 @@ export function analyseCondition(cond, dt, maxIntervals, sparseN, umPerPx) {
   const fit = alphaFit(msdAvg);
   out.msd = { ...jsonCurve(msdAvg), alpha: num(fit.alpha), r2: num(fit.r2), n_fit: fit.n_fit };
 
-  const ac = trajs.map(t => unitVectors(t)).filter(v => v.length > 1).map(v => autocorrCurve(v, dtE, maxIntervals));
-  out.autocorr = ac.length ? jsonCurve(averageCurves(ac)) : null;
+  const vecs = trajs.map(t => unitVectors(t)).filter(v => v.length > 1), ac = vecs.map(v => autocorrCurve(v, dtE, maxIntervals));
+  out.autocorr = ac.length ? jsonCurve(averageCurves(ac, trackWeights(weighting, vecs.map(v => v.length)))) : null;
   out.autocorr3d = null;
   if (zOk) {
-    const ac3 = trajs.map(t => unitVectors(t, true)).filter(v => v.length > 1).map(v => autocorrCurve(v, dtE, maxIntervals, true));
-    if (ac3.length) out.autocorr3d = jsonCurve(averageCurves(ac3));
+    const v3 = trajs.map(t => unitVectors(t, true)).filter(v => v.length > 1), ac3 = v3.map(v => autocorrCurve(v, dtE, maxIntervals, true));
+    if (ac3.length) out.autocorr3d = jsonCurve(averageCurves(ac3, trackWeights(weighting, v3.map(v => v.length))));
   }
-  const vc = trajs.filter(t => t.x.length > 2).map(t => velCorCurve(t, dtE));
-  out.vel_cor = vc.length ? jsonCurve(averageCurves(vc)) : null;
+  const used = trajs.filter(t => t.x.length > 2), vc = used.map(t => velCorCurve(t, dtE));
+  out.vel_cor = vc.length ? jsonCurve(averageCurves(vc, trackWeights(weighting, used.map(t => t.x.length - 1)))) : null;
   return out;
 }
 
 // --- files (analysis.analyse_files): [{name, text}] -> the JSON shape of POST /api/analyze ----------------------
-export function analyseFiles(files, timeInterval, maxIntervals, sparseN = 1, umPerPx = null) {
+export function analyseFiles(files, timeInterval, maxIntervals, sparseN = 1, umPerPx = null, weighting = 'displacements') {
   const dt = +timeInterval, mi = +maxIntervals, sn = +sparseN, px = umPerPx === null || umPerPx === '' ? null : +umPerPx;
   if (!(dt > 0)) throw new Error('The time interval must be a positive number.');
   if (!(mi >= 1) || !(sn >= 1)) throw new Error('The number of intervals and the sparse factor must be at least 1.');
   if (px !== null && !(px > 0)) throw new Error('The pixel size must be a positive number (um per pixel).');
+  if (!WEIGHTINGS.includes(weighting)) throw new Error(`weighting must be one of ${WEIGHTINGS.join(', ')}.`);
   if (!files.length) throw new Error('No file given.');
   const conditions = [], seen = new Map();
   for (const f of files) {
@@ -227,10 +234,10 @@ export function analyseFiles(files, timeInterval, maxIntervals, sparseN = 1, umP
     const k = (seen.get(cond.name) || 0) + 1;
     seen.set(cond.name, k);
     if (k > 1) cond.name = `${cond.name} (${k})`;
-    conditions.push(analyseCondition(cond, dt, mi, sn, px));
+    conditions.push(analyseCondition(cond, dt, mi, sn, px, weighting));
   }
   return { engine: 'js', files: files.map(f => f.name), time_interval: dt, max_intervals: mi, sparse_n: sn,
-    dt_eff: dt * sn, um_per_px: px, conditions };
+    dt_eff: dt * sn, um_per_px: px, weighting, conditions };
 }
 
 // Largest relative difference between two results of the same shape (Infinity if the shapes or null-ness differ).

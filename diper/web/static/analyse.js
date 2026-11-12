@@ -27,7 +27,7 @@ const UNITS = ['min', 's', 'h', 'frames'];
 route('analyse', async (args, query) => {
   const info = await api('/info');
   const d = info.defaults;
-  const s = state.settings || { dt: d.time_interval, unit: 'min', n: d.max_intervals, sparse: d.sparse_n, coord: 'px', px: '' };
+  const s = state.settings || { dt: d.time_interval, unit: 'min', n: d.max_intervals, sparse: d.sparse_n, coord: 'px', px: '', weighting: d.weighting };
   const engine = isStatic()
     ? 'On this static site the analysis runs <b>in your browser</b> with a JavaScript port of the Python package (tested to agree with it to about 1e-15). Nothing is uploaded.'
     : 'In the local app the analysis runs in <b>Python</b>: the files go to this computer\'s server, which calls the package\'s own functions.';
@@ -54,6 +54,11 @@ route('analyse', async (args, query) => {
         <div><label for="s-n">Autocorrel: number of intervals</label><input id="s-n" type="number" min="1" step="1" value="${s.n}"></div>
         <div><label for="s-sparse">Sparse_Data: keep 1 of N frames (1 = all)</label><input id="s-sparse" type="number" min="1" step="1" value="${s.sparse}"></div>
       </div>
+      <div class="row">
+        <div><label for="s-w">Autocorrel / Vel_Cor: average over cells</label><select id="s-w">
+          <option value="displacements" ${s.weighting === 'displacements' ? 'selected' : ''}>weighted by each cell's displacements (paper, eq 5)</option>
+          <option value="tracks" ${s.weighting === 'tracks' ? 'selected' : ''}>plain mean of the per-cell curves</option></select></div>
+      </div>
       <p class="small mute">Coordinates are converted to µm before the analysis (speed in µm per time unit, MSD in µm²); the ratio,
         α and the autocorrelations do not depend on the scale. With Sparse_Data N &gt; 1 the time interval used is N × the one above.
         Defaults are those of the package's <code>run_*</code> functions (Δt ${d.time_interval}, ${d.max_intervals} intervals).</p>
@@ -79,7 +84,7 @@ route('analyse', async (args, query) => {
   $('b-demo-dl').onclick = () => simulateFiles().forEach(f => download(f.name, f.text, 'text/csv'));
 
   async function run() {
-    const dt = +$('s-dt').value, n = +$('s-n').value, sparse = +$('s-sparse').value, coord = $('s-coord').value, px = +$('s-px').value;
+    const dt = +$('s-dt').value, n = +$('s-n').value, sparse = +$('s-sparse').value, coord = $('s-coord').value, px = +$('s-px').value, weighting = $('s-w').value;
     const status = $('status');
     const fail = msg => { status.innerHTML = `<span class="err">${msg}</span>`; };
     if (!state.sources.length) return fail('Load a file or the simulated demo first.');
@@ -87,20 +92,21 @@ route('analyse', async (args, query) => {
     if (!Number.isInteger(n) || n < 1) return fail('The number of intervals must be a whole number of at least 1.');
     if (!Number.isInteger(sparse) || sparse < 1) return fail('Sparse_Data N must be a whole number of at least 1.');
     if (coord === 'px' && !(px > 0)) return fail('Enter the pixel size in µm per pixel (or choose micrometre coordinates). It is never assumed.');
-    state.settings = { dt, unit: $('s-unit').value, n, sparse, coord, px: coord === 'px' ? px : '' };
+    state.settings = { dt, unit: $('s-unit').value, n, sparse, coord, px: coord === 'px' ? px : '', weighting };
     const fd = new FormData();
     for (const src of state.sources) fd.append('files', src.file, src.name);
     fd.append('time_interval', String(dt));
     fd.append('max_intervals', String(n));
     fd.append('sparse_n', String(sparse));
     fd.append('um_per_px', coord === 'px' ? String(px) : '');
+    fd.append('weighting', weighting);
     $('b-run').disabled = true; status.textContent = 'Analysing...';
     const host = $('results');
     try {
       const res = await api('/analyze', { body: fd });
       let check = null;
       if (res.engine === 'python' && state.sources.every(x => x.text)) {
-        try { check = maxDifference(analyseFiles(state.sources.map(x => ({ name: x.name, text: x.text })), dt, n, sparse, coord === 'px' ? px : null), res); } catch { check = null; }
+        try { check = maxDifference(analyseFiles(state.sources.map(x => ({ name: x.name, text: x.text })), dt, n, sparse, coord === 'px' ? px : null, weighting), res); } catch { check = null; }
       }
       state.result = res;
       state.meta = { simulated: state.sources[0].simulated, timeUnit: state.settings.unit, coord, check, maxSegments: info.max_segments };

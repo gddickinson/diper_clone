@@ -62,10 +62,11 @@ import pandas as pd  # noqa: E402
 FIXTURE = json.loads((ROOT / "tests" / "fixtures" / "diper_fixture.json").read_text())
 
 
-def _post(files, dt=1.0, n=10, sparse=1, px=""):
+def _post(files, dt=1.0, n=10, sparse=1, px="", weighting="displacements"):
     return client.post("/api/analyze", files=[("files", (name, text.encode() if isinstance(text, str) else text, "text/csv"))
                                               for name, text in files],
-                       data={"time_interval": str(dt), "max_intervals": str(n), "sparse_n": str(sparse), "um_per_px": str(px)})
+                       data={"time_interval": str(dt), "max_intervals": str(n), "sparse_n": str(sparse), "um_per_px": str(px),
+                             "weighting": weighting})
 
 
 def _close(a, b, path="", rtol=1e-9):
@@ -89,14 +90,14 @@ def test_fixture_is_current(case):
     """The committed fixture is what the Python code gives now (regenerate: python scripts/make_diper_fixture.py)."""
     from diper.web.analysis import analyse_files
     got = analyse_files([(f["name"], f["text"].encode()) for f in case["files"]], case["time_interval"],
-                        case["max_intervals"], case["sparse_n"], case["um_per_px"])
+                        case["max_intervals"], case["sparse_n"], case["um_per_px"], case["weighting"])
     _close(json.loads(json.dumps(got)), case["expected"], case["name"])
 
 
 @pytest.mark.parametrize("case", FIXTURE["cases"], ids=lambda c: c["name"])
 def test_analyze_endpoint_matches_fixture(case):
     r = _post([(f["name"], f["text"]) for f in case["files"]], case["time_interval"], case["max_intervals"],
-              case["sparse_n"], "" if case["um_per_px"] is None else case["um_per_px"])
+              case["sparse_n"], "" if case["um_per_px"] is None else case["um_per_px"], case["weighting"])
     assert r.status_code == 200, r.text
     _close(r.json()["conditions"], case["expected"]["conditions"], case["name"])
 
@@ -117,7 +118,7 @@ def test_same_numbers_as_run_functions(tmp_path):
     path = tmp_path / "cond.csv"
     path.write_text(case["files"][0]["text"])
     data = load_data(str(path))
-    ac = run_autocorrelation_analysis(data, 1.0, 10, output_dir=str(tmp_path / "out"))["cond"]
+    ac = run_autocorrelation_analysis(data, 1.0, 10, output_dir=str(tmp_path / "out"))["cond"]  # paper eq 5 weights
     ms = run_msd_analysis(data, 1.0, output_dir=str(tmp_path / "out"))
     got = _post([("cond.csv", case["files"][0]["text"])], 1.0, 10).json()["conditions"][0]
     np.testing.assert_array_equal(np.array(got["autocorr"]["avg"], float), ac["avg_autocorr"].to_numpy(float))
@@ -156,5 +157,15 @@ def test_bad_inputs():
     assert _post(good, dt=0).status_code == 400
     assert _post(good, px=-1).status_code == 400
     assert _post(good, sparse=0).status_code == 400
+    assert _post(good, weighting="cells").status_code == 400
     c = _post([("few.csv", "f,x,y\n1,2,3\n")]).json()["conditions"][0]
     assert "enough columns" in c["error"]
+
+
+def test_weighting_option_changes_only_autocorrelations():
+    """Paper eq 5 (cells weighted by displacements) is the default; 'tracks' gives the plain per-track mean."""
+    text = FIXTURE["cases"][0]["files"][0]["text"]
+    a = _post([("c.csv", text)], 0.5, 12).json()["conditions"][0]
+    b = _post([("c.csv", text)], 0.5, 12, weighting="tracks").json()["conditions"][0]
+    assert a["autocorr"]["avg"] != b["autocorr"]["avg"] and a["vel_cor"]["avg"] != b["vel_cor"]["avg"]
+    assert a["autocorr"]["sem"] == b["autocorr"]["sem"] and a["msd"] == b["msd"] and a["speed"] == b["speed"]

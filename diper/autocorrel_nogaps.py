@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
 
 from diper.utils import sem as _sem
+from diper.utils import average_curves, track_weights
 from diper.utils import (
     split_trajectories,
     ensure_output_dir,
@@ -130,63 +131,23 @@ def calculate_autocorrelation(traj: pd.DataFrame,
     return results
 
 
-def average_autocorrelation_results(all_autocorrs: List[pd.DataFrame]) -> pd.DataFrame:
+def average_autocorrelation_results(all_autocorrs: List[pd.DataFrame],
+                                    weights: Optional[List[float]] = None) -> pd.DataFrame:
     """
-    Average autocorrelation results from multiple trajectories.
-    
+    Average per-cell results at each time interval (columns time_interval, avg_autocorr, sem, n).
+
     Parameters:
-        all_autocorrs: List of autocorrelation result DataFrames
-    
+        all_autocorrs: List of per-cell result DataFrames
+        weights: None for the plain mean of the cells, or one weight per cell (its number of
+            displacements) for the population average of Gorelik & Gautreau 2014, eq 5
+
     Returns:
-        DataFrame with averaged results
+        DataFrame with averaged results; sem is the sample s.e.m. of the per-cell values
     """
     if not all_autocorrs:
         return pd.DataFrame(columns=['time_interval', 'avg_autocorr', 'sem', 'n'])
-    
-    # Collect all unique time intervals
-    all_time_intervals = set()
-    for autocorr_df in all_autocorrs:
-        all_time_intervals.update(autocorr_df['time_interval'].values)
-    
-    all_time_intervals = sorted(all_time_intervals)
-    
-    # Initialize results
-    results = {
-        'time_interval': all_time_intervals,
-        'autocorrs': [[] for _ in all_time_intervals]
-    }
-    
-    # Collect autocorrelations for each time interval
-    for autocorr_df in all_autocorrs:
-        for i, t in enumerate(all_time_intervals):
-            matching_rows = autocorr_df[autocorr_df['time_interval'] == t]
-            if not matching_rows.empty:
-                results['autocorrs'][i].append(matching_rows['autocorrelation'].iloc[0])
-    
-    # Calculate averages and SEMs
-    avg_autocorrs = []
-    sems = []
-    
-    for autocorrs in results['autocorrs']:
-        if autocorrs:
-            avg = np.mean(autocorrs)
-            sem = _sem(autocorrs)
-        else:
-            avg = np.nan
-            sem = np.nan
-        
-        avg_autocorrs.append(avg)
-        sems.append(sem)
-    
-    # Create results DataFrame
-    df_results = pd.DataFrame({
-        'time_interval': results['time_interval'],
-        'avg_autocorr': avg_autocorrs,
-        'sem': sems,
-        'n': [len(autocorrs) for autocorrs in results['autocorrs']]
-    })
-    
-    return df_results
+    out = average_curves(all_autocorrs, 'time_interval', 'autocorrelation', weights)
+    return out.rename(columns={'avg': 'avg_autocorr'})
 
 
 def plot_autocorrelation(autocorr_results: Dict[str, pd.DataFrame],
@@ -239,7 +200,8 @@ def run_autocorrelation_nogaps_analysis(data: Dict[str, pd.DataFrame],
                                       time_interval: float,
                                       max_intervals: int = 30,
                                       threshold: float = 0.0,
-                                      output_dir: str = "output") -> Dict[str, pd.DataFrame]:
+                                      output_dir: str = "output",
+                                      weighting: str = "displacements") -> Dict[str, pd.DataFrame]:
     """
     Run the Direction Autocorrelation (No Gaps) analysis for all conditions.
     
@@ -249,6 +211,8 @@ def run_autocorrelation_nogaps_analysis(data: Dict[str, pd.DataFrame],
         max_intervals: Maximum number of time intervals to calculate
         threshold: Distance threshold below which a cell is considered idling
         output_dir: Directory to save output
+        weighting: 'displacements' (default; paper eq 5: cells weighted by their number of
+            displacements) or 'tracks' (plain mean of the per-cell curves)
     
     Returns:
         Dictionary of autocorrelation results
@@ -271,8 +235,9 @@ def run_autocorrelation_nogaps_analysis(data: Dict[str, pd.DataFrame],
         vector_trajectories = [normalize_vectors_nogaps(traj, threshold) for traj in trajectories]
         
         # Calculate autocorrelation for each trajectory
-        autocorr_results = [calculate_autocorrelation(traj, time_interval, max_intervals) 
-                           for traj in vector_trajectories if len(traj) > 1]
+        used = [traj for traj in vector_trajectories if len(traj) > 1]
+        autocorr_results = [calculate_autocorrelation(traj, time_interval, max_intervals) for traj in used]
+        weights = track_weights(weighting, [len(traj) for traj in used])  # displacements per cell
         
         # Skip if no valid results
         if not autocorr_results:
@@ -280,7 +245,7 @@ def run_autocorrelation_nogaps_analysis(data: Dict[str, pd.DataFrame],
             continue
         
         # Average autocorrelation results
-        avg_autocorr = average_autocorrelation_results(autocorr_results)
+        avg_autocorr = average_autocorrelation_results(autocorr_results, weights)
         
         # Store results
         all_autocorr_results[condition_name] = avg_autocorr

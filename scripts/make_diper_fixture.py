@@ -70,14 +70,16 @@ def main():
                             ("random.csv", table(rng, 1.2, [28, 14, 22, 6]))], 0.5, 12, 1, 0.65),
         ("um_3d", [("cells 3D.csv", table(rng, 0.5, [40, 33, 9], z=True))], 2.0, 8, 1, None),
         ("sparse", [("sparse.csv", table(rng, 0.4, [45, 31, 20, 4]))], 1.0, 10, 3, 0.1075),
+        ("unweighted", [("tracks.csv", table(rng, 0.7, [50, 12, 7, 26], z=True))], 0.25, 15, 1, 0.5, "tracks"),
         ("edge", [("stationary.csv", stationary), ("few_cols.csv", "frame,x,y\n1,0,0\n2,1,1\n"),
                   ("empty_rows.csv", "a,b,c,frame,x,y\n"), ("stationary.csv", stationary)], 1.0, 5, 1, None),
     ]
     out = []
-    for name, files, dt, mi, sn, px in cases:
-        res = analyse_files([(f, t.encode()) for f, t in files], dt, mi, sn, px)
+    for name, files, dt, mi, sn, px, *wt in cases:
+        w = wt[0] if wt else "displacements"
+        res = analyse_files([(f, t.encode()) for f, t in files], dt, mi, sn, px, w)
         out.append({"name": name, "files": [{"name": f, "text": t} for f, t in files], "time_interval": dt,
-                    "max_intervals": mi, "sparse_n": sn, "um_per_px": px, "expected": res})
+                    "max_intervals": mi, "sparse_n": sn, "um_per_px": px, "weighting": w, "expected": res})
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({"generated_by": "scripts/make_diper_fixture.py", "cases": out}, separators=(",", ":")))
     print(f"wrote {OUT} ({OUT.stat().st_size / 1e3:.1f} kB, {len(out)} cases)")

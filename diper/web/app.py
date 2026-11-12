@@ -58,7 +58,8 @@ def info():
 
 @app.post("/api/analyze")
 async def analyze(files: List[UploadFile] = File(...), time_interval: float = Form(...),
-                  max_intervals: int = Form(30), sparse_n: int = Form(1), um_per_px: Optional[str] = Form(None)):
+                  max_intervals: int = Form(30), sparse_n: int = Form(1), um_per_px: Optional[str] = Form(None),
+                  weighting: str = Form("displacements")):
     """Analyse uploaded CSV/Excel files with the repo's Python code (see diper/web/analysis.py)."""
     payload, total = [], 0
     for f in files:
@@ -69,7 +70,7 @@ async def analyze(files: List[UploadFile] = File(...), time_interval: float = Fo
         raise HTTPException(413, "Files too large for the web app (10 MB in total); use the Python library for big data.")
     try:
         px = float(um_per_px) if um_per_px not in (None, "") else None
-        return analyse_files(payload, time_interval, max_intervals, sparse_n, px)
+        return analyse_files(payload, time_interval, max_intervals, sparse_n, px, weighting)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
