@@ -24,10 +24,14 @@ summary, 3 CSV exports), Methods, Data format, About. Left out of the web: Autoc
 - `load_data` left column 7 under its own header, so Autocorrel_3D never found 'z' unless the header was exactly 'z'.
 - Docs described functions, a `python -m diper.main` CLI and example data that do not exist: corrected.
 
-**Needs George's decision** (not changed):
-- Population averaging: the paper's eq 5 weights each cell's DA by its number of displacements; the package (and
-  so the web pages) averages per-track curves unweighted.
-- s.e.m. uses np.std with ddof 0 everywhere except the Dir_Ratio last-point plot (pandas, ddof 1).
+**Follow-up the same day (George: follow the paper)**, separate "Fix ..." commits:
+- Autocorrel, Autocorrel_3D, Autocorrel_NoGaps and Vel_Cor now average cells as in the paper's eq 5, weighted by
+  each cell's number of displacements (`weighting="displacements"`, the default); `weighting="tracks"` keeps the
+  old plain per-track mean. A shared `utils.average_curves` replaces four copies of the averaging loop. The web pages
+  offer both.
+- s.e.m. is the sample s.e.m. (ddof=1) everywhere, via `utils.sem`.
+- The paper PDF was removed from docs/ (publisher's copyright; still in git history), docs/*.pdf is ignored, and the
+  DOI is linked instead.
 
-**Tests**: `pytest tests` 62 passed; node engine test ok (worst 9.95e-16); screenshots.py --static and --base all ok,
+**Tests** (after the follow-up): `pytest tests` 82 passed; node engine test ok (5 cases, worst 9.77e-16); screenshots.py --static and --base all ok,
 no overflow at 390 px.

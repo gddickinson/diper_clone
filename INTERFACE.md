@@ -30,6 +30,10 @@
 - **utils.py** — Shared utilities
   - `load_data(file_path)` -> dict of DataFrames
   - `split_trajectories(df)` -> list of DataFrames
+  - `sem(values)` -> sample s.e.m. (ddof=1), used for every error bar
+  - `average_curves(curves, time_col, value_col, weights=None)` -> per-interval avg/sem/n; weights = displacements
+    per cell for the paper's eq 5 (used by autocorrel, autocorrel_3d, autocorrel_nogaps, vel_cor)
+  - `track_weights(weighting, n_displacements)`: 'displacements' (paper, default) or 'tracks' (plain mean)
   - `ensure_output_dir(output_dir, subdir)` -> str
   - `save_figure(fig, output_dir, filename, formats)`
   - `save_results(df, output_dir, filename)`
@@ -68,6 +72,7 @@
 - **test_autocorrel.py** — Tests for vector normalization, autocorrelation computation
 - **test_msd.py** — Tests for MSD computation and averaging
 - **test_vel_cor.py**, **test_dir_ratio.py**, **test_plot_at_origin.py** — regression tests for the 2026-11-12 fixes
+- **test_sem.py**, **test_weighting.py** — sample s.e.m.; eq 5 weighting vs plain mean
 - **test_imports.py** — every module imports with only the declared dependencies
 - **test_web.py** — web API, static build, fixture currency (rtol 1e-9), Python == run_* functions, node engine test
 
